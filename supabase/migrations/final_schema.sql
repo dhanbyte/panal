@@ -217,18 +217,18 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Complete!h_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
--- Step 8: Storage bucket
+-- Step 8: Storage bucket for audio files
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES ('task-audio', 'task-audio', true, 10485760, ARRAY['audio/webm','audio/mp4','audio/ogg','audio/wav'])
 ON CONFLICT (id) DO NOTHING;
 
+-- Storage policies
 DROP POLICY IF EXISTS "audio_select" ON storage.objects;
 DROP POLICY IF EXISTS "audio_insert" ON storage.objects;
 DROP POLICY IF EXISTS "audio_delete" ON storage.objects;
+
 CREATE POLICY "audio_select" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'task-audio');
 CREATE POLICY "audio_insert" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'task-audio');
 CREATE POLICY "audio_delete" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'task-audio');
+
+-- Migration Complete! Database ready for ShopWave Team Management App
