@@ -29,13 +29,15 @@ export default function Navbar() {
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUserId(session?.user?.id ?? null);
-    });
+    const user = localStorage.getItem('user');
+    if (user) {
+      const parsed = JSON.parse(user);
+      setUserId(parsed.id);
+    }
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    localStorage.removeItem('user');
     router.push('/auth/login');
   };
 

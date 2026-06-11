@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-import { Mail, Lock, User, Phone, Briefcase, Building2, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, User, Phone, Briefcase, Building2 } from 'lucide-react';
 
 const DEPARTMENTS = ['Marketing', 'Orders', 'Development', 'Wholesale', 'SEO', 'Sales'];
 const ROLES = ['Member', 'Manager', 'Owner'];
@@ -13,21 +13,10 @@ const ROLES = ['Member', 'Manager', 'Owner'];
 export default function Register() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
-    fullName: '',
-    phone: '',
-    workRole: '',
-    department: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
+    fullName: '', phone: '', workRole: '', department: '',
+    email: '', password: '', confirmPassword: '',
   });
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,35 +32,31 @@ export default function Register() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { data: existing } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', formData.email)
+        .single();
+
+      if (existing) {
+        toast.error('Email already registered');
+        return;
+      }
+
+      const { data, error } = await supabase.from('users').insert({
         email: formData.email,
         password: formData.password,
-        options: {
-          emailRedirectTo: undefined,
-          data: {
-            full_name: formData.fullName,
-            phone: formData.phone,
-            work_role: formData.workRole,
-            department: formData.department,
-          },
-        },
-      });
+        full_name: formData.fullName,
+        phone: formData.phone,
+        work_role: formData.workRole,
+        department: formData.department,
+      }).select().single();
 
       if (error) throw error;
 
-      if (data.user) {
-        await supabase.from('users').upsert({
-          id: data.user.id,
-          email: formData.email,
-          full_name: formData.fullName,
-          phone: formData.phone,
-          work_role: formData.workRole,
-          department: formData.department,
-        });
-        
-        toast.success('Account created! Redirecting to dashboard...');
-        router.push('/dashboard');
-      }
+      localStorage.setItem('user', JSON.stringify(data));
+      toast.success('Account created! Redirecting...');
+      router.push('/dashboard');
     } catch (error: any) {
       toast.error(error.message || 'Registration failed');
     } finally {
@@ -97,15 +82,10 @@ export default function Register() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
             <div className="relative">
               <User className="absolute left-3 top-3 text-gray-400" size={18} />
-              <input
-                type="text"
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleChange}
-                required
+              <input type="text" required value={formData.fullName}
+                onChange={(e) => setFormData(p => ({ ...p, fullName: e.target.value }))}
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="Aapka poora naam"
-              />
+                placeholder="Your full name" />
             </div>
           </div>
 
@@ -114,16 +94,11 @@ export default function Register() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
             <div className="relative">
               <Phone className="absolute left-3 top-3 text-gray-400" size={18} />
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                required
+              <input type="tel" required value={formData.phone}
+                onChange={(e) => setFormData(p => ({ ...p, phone: e.target.value }))}
                 pattern="[0-9]{10}"
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="10-digit mobile number"
-              />
+                placeholder="10-digit mobile" />
             </div>
           </div>
 
@@ -133,13 +108,9 @@ export default function Register() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Work Role</label>
               <div className="relative">
                 <Briefcase className="absolute left-3 top-3 text-gray-400" size={18} />
-                <select
-                  name="workRole"
-                  value={formData.workRole}
-                  onChange={handleChange}
-                  required
-                  className="w-full pl-10 pr-2 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white appearance-none"
-                >
+                <select required value={formData.workRole}
+                  onChange={(e) => setFormData(p => ({ ...p, workRole: e.target.value }))}
+                  className="w-full pl-10 pr-2 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white appearance-none">
                   <option value="">Select</option>
                   {ROLES.map((r) => (
                     <option key={r} value={r.toLowerCase()}>{r}</option>
@@ -152,13 +123,9 @@ export default function Register() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
               <div className="relative">
                 <Building2 className="absolute left-3 top-3 text-gray-400" size={18} />
-                <select
-                  name="department"
-                  value={formData.department}
-                  onChange={handleChange}
-                  required
-                  className="w-full pl-10 pr-2 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white appearance-none"
-                >
+                <select required value={formData.department}
+                  onChange={(e) => setFormData(p => ({ ...p, department: e.target.value }))}
+                  className="w-full pl-10 pr-2 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white appearance-none">
                   <option value="">Select</option>
                   {DEPARTMENTS.map((d) => (
                     <option key={d} value={d}>{d}</option>
@@ -173,15 +140,10 @@ export default function Register() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
             <div className="relative">
               <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
+              <input type="email" required value={formData.email}
+                onChange={(e) => setFormData(p => ({ ...p, email: e.target.value }))}
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="your@email.com"
-              />
+                placeholder="your@email.com" />
             </div>
           </div>
 
@@ -190,22 +152,10 @@ export default function Register() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="Min. 6 characters"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-gray-400"
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
+              <input type="password" required value={formData.password}
+                onChange={(e) => setFormData(p => ({ ...p, password: e.target.value }))}
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                placeholder="Min 6 characters" />
             </div>
           </div>
 
@@ -214,15 +164,10 @@ export default function Register() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
-              <input
-                type="password"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                required
+              <input type="password" required value={formData.confirmPassword}
+                onChange={(e) => setFormData(p => ({ ...p, confirmPassword: e.target.value }))}
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                placeholder="••••••••"
-              />
+                placeholder="••••••••" />
             </div>
           </div>
 

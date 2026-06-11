@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import Navbar from './Navbar';
 
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
@@ -10,15 +9,12 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/auth/login');
-      } else {
-        setLoading(false);
-      }
-    };
-    checkAuth();
+    const user = localStorage.getItem('user');
+    if (!user) {
+      router.push('/auth/login');
+    } else {
+      setLoading(false);
+    }
   }, [router]);
 
   if (loading) {
