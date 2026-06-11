@@ -47,6 +47,7 @@ export default function Register() {
         email: formData.email,
         password: formData.password,
         options: {
+          emailRedirectTo: undefined,
           data: {
             full_name: formData.fullName,
             phone: formData.phone,
@@ -58,7 +59,6 @@ export default function Register() {
 
       if (error) throw error;
 
-      // Save extra profile info to users table
       if (data.user) {
         await supabase.from('users').upsert({
           id: data.user.id,
@@ -68,10 +68,10 @@ export default function Register() {
           work_role: formData.workRole,
           department: formData.department,
         });
+        
+        toast.success('Account created! Redirecting to dashboard...');
+        router.push('/dashboard');
       }
-
-      toast.success('Account created! You can now login.');
-      router.push('/auth/login');
     } catch (error: any) {
       toast.error(error.message || 'Registration failed');
     } finally {
@@ -231,7 +231,7 @@ export default function Register() {
             disabled={loading}
             className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold py-2.5 rounded-lg hover:shadow-lg transition-all disabled:opacity-50 mt-2"
           >
-            {loading ? 'Creating Account...' : 'Create Account'}
+            {loading ? 'Creating Account...' : 'Sign Up'}
           </button>
         </form>
 

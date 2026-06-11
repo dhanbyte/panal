@@ -53,7 +53,7 @@ export default function TasksPageInner() {
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push('/auth/login'); return; }
+      if (!session) return;
 
       let { data: profile } = await supabase.from('users').select('*').eq('id', session.user.id).single();
       if (!profile) {
@@ -177,9 +177,15 @@ export default function TasksPageInner() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
-        <p className="text-sm text-gray-500 mt-0.5">{tasks.length} total tasks</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{tasks.length} total tasks</p>
+        </div>
+        <button onClick={() => setShowModal(true)}
+          className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:shadow-lg transition-shadow">
+          <CheckSquare size={16} /> Create Task
+        </button>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">

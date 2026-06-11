@@ -1,13 +1,10 @@
 'use client';
 
+import ProtectedLayout from '@/components/ProtectedLayout';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-import {
-  Plus, Users, X, UserPlus, Crown, Shield, User,
-  Loader2, ChevronDown, ChevronUp, Building2, CheckCircle2,
-} from 'lucide-react';
+import { Plus, Users, X, UserPlus, Crown, Shield, User, Loader2, ChevronDown, ChevronUp, Building2, CheckCircle2 } from 'lucide-react';
 
 const DEPARTMENTS = ['Marketing', 'Orders', 'Development', 'Wholesale', 'SEO', 'Sales'];
 
@@ -16,7 +13,6 @@ interface UserProfile { id: string; full_name: string; email: string; department
 interface Member { id: string; user_id: string; role: string; user?: UserProfile; }
 
 export default function TeamsPage() {
-  const router = useRouter();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [teams, setTeams]             = useState<Team[]>([]);
   const [allUsers, setAllUsers]       = useState<UserProfile[]>([]);
@@ -40,7 +36,7 @@ export default function TeamsPage() {
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push('/auth/login'); return; }
+      if (!session) return;
 
       // Ensure user row exists — this is critical before any team operation
       const { data: existing } = await supabase
@@ -206,7 +202,8 @@ export default function TeamsPage() {
   );
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <ProtectedLayout>
+      <div className="max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Teams</h1>
@@ -411,6 +408,7 @@ export default function TeamsPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </ProtectedLayout>
   );
 }
