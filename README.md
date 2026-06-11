@@ -1,240 +1,175 @@
-# Team Management & Task Tracking Application
+# 🎯 ShopWave Team Management & Task Tracking App
 
-A modern team management and task tracking application built with **Next.js**, **React**, **Tailwind CSS**, and **Supabase**.
+A complete team management and task tracking application built with **Next.js 16**, **React 18**, **TypeScript**, **Tailwind CSS**, and **Supabase**.
 
-## Features
+![Next.js](https://img.shields.io/badge/Next.js-16-black) ![React](https://img.shields.io/badge/React-18-blue) ![TypeScript](https://img.shields.io/badge/TypeScript-5.2-blue) ![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-green)
 
-✅ **Team Management**
-- Create and manage multiple teams
-- Add team members with different roles (owner, manager, member)
-- Organize teams by departments (Marketing, Orders, Development, Wholesale, SEO, Sales)
+## ✨ Features
 
-✅ **Task Management**
-- Create and assign tasks to team members
-- Real-time task timer
-- Track task progress (0-100%)
-- Support for multiple task statuses (pending, in_progress, completed, partially_completed)
-- Task comments and notes
-- Due date tracking
+- ✅ **Team Management** - Create teams, add members, assign roles
+- ✅ **Task Tracking** - Create, assign, and track tasks with progress
+- ✅ **Real-time Updates** - Live task updates using Supabase subscriptions
+- ✅ **Analytics Dashboard** - Performance metrics and leaderboards
+- ✅ **Audio & Image Attachments** - Record audio, upload images
+- ✅ **Comments & Collaboration** - Task comments and notes
+- ✅ **Responsive Design** - Mobile-first, works on all devices
+- ✅ **Authentication** - Secure login/signup with Supabase Auth
 
-✅ **Attachments & Communication**
-- Record and upload audio messages (stored for 1 week in Supabase)
-- Image uploads via ImageKit
-- Comment system for task collaboration
+## 🚀 Quick Start
 
-✅ **Performance Analytics**
-- Individual and team performance dashboard
-- Leaderboard showing top performers
-- Task completion statistics
-- Time efficiency metrics
-- User scoring system
-
-✅ **Responsive Design**
-- Mobile-first approach
-- Bottom navigation bar for mobile (< 768px)
-- Top/side navigation bar for desktop (>= 768px)
-- Card-based UI for better UX
-- Real-time notifications
-
-## Tech Stack
-
-- **Frontend**: Next.js 14+, React 18+, TypeScript
-- **Styling**: Tailwind CSS
-- **Backend**: Supabase (PostgreSQL)
-- **Authentication**: Supabase Auth
-- **Storage**: Supabase Storage (Audio), ImageKit (Images)
-- **UI Components**: Lucide Icons, React Hot Toast
-- **State Management**: Zustand (optional)
-
-## Prerequisites
-
-- Node.js 18+
-- npm or yarn
-- Supabase account and project
-- ImageKit account (for image uploads)
-
-## Installation
-
-### 1. Clone and Setup
-
+### 1. Install Dependencies
 ```bash
-cd frontend
 npm install
 ```
 
-### 2. Environment Variables
+### 2. Setup Environment Variables
+Copy `.env.example` to `.env.local` and fill in your credentials:
 
-Create `.env.local` in the `frontend` directory with:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-
-NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY=your_imagekit_public_key
-NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT=your_imagekit_url_endpoint
-IMAGEKIT_PRIVATE_KEY=your_imagekit_private_key
-
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+```bash
+cp .env.example .env.local
 ```
 
 ### 3. Setup Supabase Database
-
-1. Go to your Supabase project
-2. Navigate to SQL Editor
-3. Create a new query and copy the contents of `supabase/migrations/001_initial_schema.sql`
+1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
+2. Open SQL Editor
+3. Copy content from `supabase/migrations/final_schema.sql`
 4. Run the migration
 
 ### 4. Run Development Server
-
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000) 🎉
 
-## Project Structure
+## 📦 Tech Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **Frontend**: React 18, TypeScript
+- **Styling**: Tailwind CSS
+- **Database**: Supabase (PostgreSQL)
+- **Auth**: Supabase Authentication
+- **Storage**: Supabase Storage (Audio), ImageKit (Images)
+- **UI**: Lucide Icons, React Hot Toast
+
+## 📁 Project Structure
 
 ```
-/
-├── frontend/
-│   ├── app/
-│   │   ├── auth/
-│   │   │   ├── login/
-│   │   │   └── register/
-│   │   ├── dashboard/
-│   │   ├── tasks/
-│   │   ├── teams/
-│   │   ├── analytics/
-│   │   ├── settings/
-│   │   ├── layout.tsx
-│   │   ├── page.tsx
-│   │   └── globals.css
-│   ├── components/
-│   │   ├── Navbar.tsx
-│   │   ├── Dashboard.tsx
-│   │   ├── TaskCard.tsx
-│   │   └── ... (other components)
-│   ├── lib/
-│   │   └── supabase.ts
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── tailwind.config.js
-│   └── next.config.js
-├── supabase/
-│   └── migrations/
-│       └── 001_initial_schema.sql
-├── IMPLEMENTATION_PLAN.md
-└── README.md
+├── app/              # Next.js App Router pages
+│   ├── auth/        # Login, Register, Forgot Password
+│   ├── dashboard/   # Main dashboard
+│   ├── tasks/       # Task management
+│   ├── teams/       # Team management
+│   ├── analytics/   # Performance analytics
+│   └── settings/    # User settings
+├── components/       # Reusable React components
+├── lib/             # Utils, Supabase config, types
+├── supabase/        # Database migrations
+├── .env.example     # Environment variables template
+├── .env.local       # Your local environment (not committed)
+└── DEPLOYMENT.md    # Deployment guide
 ```
 
-## Key Pages
+## 🌐 Deployment
 
-- **`/`** - Home/Dashboard (overview)
-- **`/dashboard`** - Main dashboard with team overview
-- **`/tasks`** - View and manage tasks
-- **`/teams`** - Team management
-- **`/analytics`** - Performance dashboard and leaderboard
-- **`/settings`** - User settings
-- **`/auth/login`** - Login page
-- **`/auth/register`** - Registration page
+### Deploy to Vercel (Recommended)
 
-## Database Schema
+1. **Push to GitHub** (see [GITHUB_PUSH.md](GITHUB_PUSH.md))
+2. **Import to Vercel**:
+   - Go to [vercel.com/new](https://vercel.com/new)
+   - Import your GitHub repository
+   - Add environment variables
+   - Click Deploy
+3. **Done!** Your app is live 🚀
 
-### Core Tables
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
+
+## 🔐 Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
+| `NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY` | ImageKit public key |
+| `NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT` | ImageKit URL endpoint |
+| `IMAGEKIT_PRIVATE_KEY` | ImageKit private key |
+| `NEXT_PUBLIC_APP_URL` | Your app URL |
+
+## 🎮 Key Pages
+
+- `/` - Home page
+- `/dashboard` - Main dashboard
+- `/tasks` - Task management
+- `/teams` - Team management
+- `/analytics` - Performance analytics & leaderboard
+- `/settings` - User settings
+- `/auth/login` - Login
+- `/auth/register` - Sign up
+
+## 🗄️ Database Schema
+
 - `users` - User profiles
 - `teams` - Team data
 - `team_members` - Team membership
-- `departments` - Team departments
+- `departments` - Team departments (Marketing, Sales, etc.)
 - `tasks` - Task data
+- `task_assignees` - Task assignments
 - `task_comments` - Task comments
 - `task_attachments` - Images and audio files
-- `user_scores` - Performance metrics
 - `notifications` - System notifications
+- `user_scores` - Performance metrics
 
-## API Endpoints (Supabase RLS)
-
-All data access is controlled via Supabase Row Level Security policies:
-
-- Users can only see their own profile
-- Team members can view their team data
-- Tasks are visible to assigned user and team members
-- Real-time subscriptions enabled for live updates
-
-## Development Workflow
-
-### Adding a New Feature
-
-1. Create a new component in `components/`
-2. Update relevant page in `app/`
-3. Add necessary Supabase queries in `lib/`
-4. Test on mobile and desktop views
-
-### Testing
+## 🧪 Development Commands
 
 ```bash
-npm run type-check  # TypeScript checking
-npm run build       # Build for production
-```
+# Run development server
+npm run dev
 
-### Production Build
-
-```bash
+# Build for production
 npm run build
+
+# Start production server
 npm start
+
+# Type checking
+npm run type-check
+
+# Linting
+npm run lint
 ```
 
-## Security
-
-- All sensitive keys in environment variables
-- Row Level Security enabled in Supabase
-- Password hashing via Supabase Auth
-- CSRF protection built-in
-- Audio files auto-delete after 1 week
-
-## Performance Optimizations
-
-- Image optimization with Next.js Image
-- Lazy loading for components
-- Server-side rendering with ISR
-- Efficient database queries with RLS
-- Real-time subscriptions for live updates
-
-## Troubleshooting
+## 🛠️ Troubleshooting
 
 ### Port Already in Use
 ```bash
-# Change port in next.config.js or use:
 npm run dev -- -p 3001
 ```
 
-### Supabase Connection Error
-- Verify credentials in `.env.local`
-- Check Supabase project is active
-- Ensure network connectivity
+### Database Connection Error
+- Check Supabase credentials in `.env.local`
+- Ensure database migration ran successfully
+- Verify Supabase project is active
 
 ### Build Errors
 ```bash
-rm -rf node_modules package-lock.json
+rm -rf node_modules .next
 npm install
 npm run build
 ```
 
-## Next Steps
+## 📝 License
 
-1. Set up Supabase database with migrations
-2. Configure environment variables
-3. Run development server
-4. Create your first team and invite members
-5. Start creating tasks and assigning them
+MIT License - Free to use for personal and commercial projects.
 
-## Support
+## 🤝 Support
 
-For issues or questions, check:
 - [Supabase Docs](https://supabase.com/docs)
 - [Next.js Docs](https://nextjs.org/docs)
-- [Tailwind CSS Docs](https://tailwindcss.com/docs)
+- [Vercel Docs](https://vercel.com/docs)
 
-## License
+---
 
-MIT License - Feel free to use for personal and commercial projects.
+**Built with ❤️ using Next.js, React, and Supabase**
+
+🚀 **Ready for production deployment on Vercel!**
