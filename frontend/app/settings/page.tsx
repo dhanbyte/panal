@@ -17,16 +17,17 @@ export default function Settings() {
   });
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkAuth = () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
+        const userStr = localStorage.getItem('user');
+        if (!userStr) {
           router.push('/auth/login');
         } else {
-          setUser(session.user);
+          const u = JSON.parse(userStr);
+          setUser(u);
           setFormData({
-            fullName: session.user.user_metadata?.full_name || '',
-            email: session.user.email || '',
+            fullName: u.full_name || '',
+            email: u.email || '',
           });
         }
       } catch (error) {
@@ -42,13 +43,19 @@ export default function Settings() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { error } = await supabase.auth.updateUser({
-        data: {
+      const { error } = await supabase
+        .from('users')
+        .update({
           full_name: formData.fullName,
-        },
-      });
+        })
+        .eq('id', user.id);
 
       if (error) throw error;
+
+      const updatedUser = { ...user, full_name: formData.fullName };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+
       toast.success('Profile updated successfully!');
     } catch (error: any) {
       toast.error(error.message || 'Failed to update profile');

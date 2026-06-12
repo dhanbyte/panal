@@ -306,77 +306,74 @@ export async function markNotificationRead(notificationId: string) {
 }
 
 export async function loadLeaderboard(teamId?: string): Promise<LeaderboardRow[]> {
-  let scoreQuery = supabase.from('user_scores').select('*').order('score', { ascending: false });
+  // Fetch all users
+  const { data: usersData, error: userError } = await supabase
+    .from('users')
+    .select('id, full_name, email');
+  if (userError) throw userError;
 
-  if (teamId) {
-    scoreQuery = scoreQuery.eq('team_id', teamId);
-  }
+  // Fetch all task_assignees joined with tasks
+  const { data: assigneesData, error: assignError } = await supabase
+    .from('task_assignees')
+    .select('user_id, task_id, tasks(status, time_spent)');
+  if (assignError) throw assignError;
 
-  const { data: scoreRows, error: scoreError } = await scoreQuery;
-  if (scoreError) throw scoreError;
-
-  const scoreData = scoreRows ?? [];
-
-  if (scoreData.length > 0) {
-    const userIds = scoreData.map((row) => row.user_id);
-    const { data: usersData } = await supabase
-      .from('users')
-      .select('id, full_name, email')
-      .in('id', userIds);
-
-    const userMap = new Map((usersData ?? []).map((u) => [u.id, u]));
-
-    return scoreData.map((row) => ({
-      user_id: row.user_id,
-      name: userMap.get(row.user_id)?.full_name || userMap.get(row.user_id)?.email || 'Unknown',
-      tasks_completed: row.tasks_completed,
-      tasks_assigned: row.tasks_assigned,
-      avg_completion_time: row.avg_completion_time,
-      total_time_spent: row.total_time_spent,
-      score: row.score,
-    }));
-  }
-
-  const { data: tasksData, error: taskError } = await supabase.from('tasks').select('*');
-  if (taskError) throw taskError;
-
-  const aggregate = new Map<string, {
-    tasksCompleted: number;
-    tasksAssigned: number;
-    totalTime: number;
+  const userMap = new Map<string, {
+    tasks_completed: number;
+    tasks_assigned: number;
+    tasks_remaining: number;
+    total_time_spent: number;
   }>();
 
-  (tasksData ?? []).forEach((task: any) => {
-    const current = aggregate.get(task.assigned_to) ?? {
-      tasksCompleted: 0,
-      tasksAssigned: 0,
-      totalTime: 0,
-    };
-
-    current.tasksAssigned += 1;
-    if (task.status === 'completed') current.tasksCompleted += 1;
-    current.totalTime += Number(task.time_spent || 0);
-    aggregate.set(task.assigned_to, current);
+  // Initialize all users with 0 stats
+  (usersData ?? []).forEach((u) => {
+    userMap.set(u.id, {
+      tasks_completed: 0,
+      tasks_assigned: 0,
+      tasks_remaining: 0,
+      total_time_spent: 0,
+    });
   });
 
-  const userIds = [...aggregate.keys()];
-  if (userIds.length === 0) return [];
+  // Aggregate stats from task_assignees
+  (assigneesData ?? []).forEach((row: any) => {
+    const task = row.tasks;
+    if (!task) return;
 
-  const { data: usersData } = await supabase.from('users').select('id, full_name, email').in('id', userIds);
-  const userMap = new Map((usersData ?? []).map((u) => [u.id, u]));
+    let current = userMap.get(row.user_id);
+    if (!current) {
+      // In case user is in assignees but not in users table (orphan record)
+      current = {
+        tasks_completed: 0,
+        tasks_assigned: 0,
+        tasks_remaining: 0,
+        total_time_spent: 0,
+      };
+      userMap.set(row.user_id, current);
+    }
 
-  const rows: LeaderboardRow[] = userIds.map((uid) => {
-    const metrics = aggregate.get(uid)!;
-    const avg = metrics.tasksCompleted > 0 ? Math.floor(metrics.totalTime / metrics.tasksCompleted) : 0;
+    current.tasks_assigned += 1;
+    if (task.status === 'completed') {
+      current.tasks_completed += 1;
+      current.total_time_spent += Number(task.time_spent || 0);
+    } else {
+      current.tasks_remaining += 1;
+    }
+  });
+
+  const rows: LeaderboardRow[] = (usersData ?? []).map((u) => {
+    const stats = userMap.get(u.id)!;
+    const avg = stats.tasks_completed > 0 ? Math.floor(stats.total_time_spent / stats.tasks_completed) : 0;
 
     return {
-      user_id: uid,
-      name: userMap.get(uid)?.full_name || userMap.get(uid)?.email || 'Unknown',
-      tasks_completed: metrics.tasksCompleted,
-      tasks_assigned: metrics.tasksAssigned,
+      user_id: u.id,
+      name: u.full_name || u.email || 'Unknown',
+      tasks_completed: stats.tasks_completed,
+      tasks_assigned: stats.tasks_assigned,
+      tasks_remaining: stats.tasks_remaining,
       avg_completion_time: avg,
-      total_time_spent: metrics.totalTime,
-      score: calculateScore(metrics.tasksCompleted, avg, metrics.totalTime),
+      total_time_spent: stats.total_time_spent,
+      score: calculateScore(stats.tasks_completed, avg, stats.total_time_spent),
     };
   });
 

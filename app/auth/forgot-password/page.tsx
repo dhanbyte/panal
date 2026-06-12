@@ -57,17 +57,17 @@ export default function ForgotPassword() {
 
     setLoading(true);
     try {
-      // Send password reset email - user clicks link and resets
-      const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
-        redirectTo: `${window.location.origin}/auth/update-password`,
-      });
+      const { error } = await supabase
+        .from('users')
+        .update({ password: passwords.newPassword })
+        .eq('email', userEmail);
 
       if (error) throw error;
 
-      toast.success(`Password reset link sent to ${userEmail}. Check your email!`);
+      toast.success('Password reset successfully!');
       router.push('/auth/login');
     } catch (error: any) {
-      toast.error(error.message || 'Failed to send reset email');
+      toast.error(error.message || 'Failed to reset password');
     } finally {
       setLoading(false);
     }

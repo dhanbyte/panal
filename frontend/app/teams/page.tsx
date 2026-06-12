@@ -39,36 +39,21 @@ export default function TeamsPage() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push('/auth/login'); return; }
+      const userStr = localStorage.getItem('user');
+      if (!userStr) { router.push('/auth/login'); return; }
 
-      // Ensure user row exists — this is critical before any team operation
-      const { data: existing } = await supabase
-        .from('users').select('id').eq('id', session.user.id).single();
-
-      if (!existing) {
-        const { error: uErr } = await supabase.from('users').insert({
-          id: session.user.id,
-          email: session.user.email!,
-          full_name: session.user.user_metadata?.full_name || null,
-          phone: session.user.user_metadata?.phone || null,
-          work_role: session.user.user_metadata?.work_role || null,
-          department: session.user.user_metadata?.department || null,
-        });
-        if (uErr) console.error('user insert error:', uErr);
-      }
-
-      setCurrentUser({ id: session.user.id, email: session.user.email, ...session.user.user_metadata });
+      const u = JSON.parse(userStr);
+      setCurrentUser(u);
 
       // Load all registered users for member selection
       const { data: users } = await supabase
         .from('users')
         .select('id, full_name, email, department, work_role')
-        .neq('id', session.user.id)
+        .neq('id', u.id)
         .order('full_name');
       setAllUsers(users || []);
 
-      await loadTeams(session.user.id);
+      await loadTeams(u.id);
       setLoading(false);
     };
     init();
