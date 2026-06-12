@@ -37,7 +37,13 @@ export default function AudioRecorder({ taskId, userId, onSaved }: AudioRecorder
       .eq('task_id', taskId)
       .eq('file_type', 'audio')
       .order('created_at', { ascending: false });
-    setSavedAudios(data || []);
+    setSavedAudios(
+      (data || []).map((row: any) => ({
+        url: row.file_url,
+        name: row.file_name,
+        created_at: row.created_at,
+      }))
+    );
   };
 
   // Recording timer

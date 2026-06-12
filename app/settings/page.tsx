@@ -10,12 +10,13 @@ export default function Settings() {
   const [formData, setFormData] = useState({ fullName: '', email: '' });
 
   useEffect(() => {
-    const load = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
+    const load = () => {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
         setFormData({
-          fullName: session.user.user_metadata?.full_name || '',
-          email: session.user.email || '',
+          fullName: user.full_name || '',
+          email: user.email || '',
         });
       }
     };
@@ -25,10 +26,20 @@ export default function Settings() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { error } = await supabase.auth.updateUser({
-        data: { full_name: formData.fullName },
-      });
+      const userStr = localStorage.getItem('user');
+      if (!userStr) return;
+      
+      const user = JSON.parse(userStr);
+      const { error } = await supabase
+        .from('users')
+        .update({ full_name: formData.fullName })
+        .eq('id', user.id);
+      
       if (error) throw error;
+      
+      user.full_name = formData.fullName;
+      localStorage.setItem('user', JSON.stringify(user));
+      
       toast.success('Profile updated!');
     } catch (error: any) {
       toast.error(error.message || 'Failed to update');

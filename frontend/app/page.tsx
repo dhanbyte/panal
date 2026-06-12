@@ -12,16 +12,13 @@ export default function Home() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkAuth = () => {
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        
-        if (!session) {
+        const userStr = localStorage.getItem('user');
+        if (!userStr) {
           router.push('/auth/login');
         } else {
-          setUser(session.user);
+          setUser(JSON.parse(userStr));
         }
       } catch (error) {
         console.error('Auth check error:', error);

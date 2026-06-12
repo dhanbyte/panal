@@ -7,7 +7,6 @@ import { supabase } from '@/lib/supabase';
 import {
   Home,
   CheckSquare,
-  Users,
   Settings,
   LogOut,
   BarChart3,
@@ -18,7 +17,6 @@ import NotificationBell from '@/components/NotificationBell';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
   { href: '/tasks', label: 'Tasks', icon: CheckSquare },
-  { href: '/teams', label: 'Teams', icon: Users },
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
@@ -29,13 +27,21 @@ export default function Navbar() {
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUserId(session?.user?.id ?? null);
-    });
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const u = JSON.parse(userStr);
+        setUserId(u.id);
+      } catch {
+        setUserId(null);
+      }
+    } else {
+      setUserId(null);
+    }
   }, []);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const handleLogout = () => {
+    localStorage.removeItem('user');
     router.push('/auth/login');
   };
 
