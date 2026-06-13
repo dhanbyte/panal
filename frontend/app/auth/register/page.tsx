@@ -24,56 +24,29 @@ export default function Register() {
 
     setLoading(true);
     try {
-      // Check if phone already registered
-      const { data: existing } = await supabase
-        .from('users')
-        .select('id')
-        .eq('phone', formData.phone)
-        .single();
-
-      if (existing) {
-        toast.error('Phone number already registered');
-        return;
-      }
-
-      const fakeEmail = `${formData.phone}@shopwave.app`;
-
-      // Step 1: Create auth user first (satisfies FK constraint)
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: fakeEmail,
-        password: `sw_${formData.phone}_${Date.now()}`,
-        email_confirm: true,
-      });
-
-      if (authError || !authData?.user) {
-        toast.error(`Registration failed: ${authError?.message || 'Could not create account'}`);
-        return;
-      }
-
-      // Step 2: Insert into public.users with the auth user's ID
-      const { data, error } = await supabase
-        .from('users')
-        .insert({
-          id: authData.user.id,
-          full_name: formData.fullName,
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fullName: formData.fullName,
           phone: formData.phone,
           department: formData.department,
-          email: fakeEmail,
-        })
-        .select()
-        .single();
+        }),
+      });
 
-      if (error) {
-        // Cleanup auth user if public.users insert fails
-        await supabase.auth.admin.deleteUser(authData.user.id);
-        toast.error(`Registration failed: ${error.message}`);
+      const resData = await response.json();
+
+      if (!response.ok) {
+        toast.error(`Registration failed: ${resData.error || 'Could not create account'}`);
         return;
       }
 
-      localStorage.setItem('user', JSON.stringify(data));
+      localStorage.setItem('user', JSON.stringify(resData.user));
       toast.success('Account created successfully!');
       router.push('/dashboard');
-    } catch {
+    } catch (err: any) {
       toast.error('Registration failed. Please try again.');
     } finally {
       setLoading(false);
