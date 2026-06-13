@@ -13,10 +13,12 @@ import {
 type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'partially_completed';
 
 interface UserProfile { id: string; full_name: string; email: string; department: string; work_role: string; }
+
 interface Task {
   id: string; title: string; description: string | null;
   status: TaskStatus; progress_percentage: number;
   due_date: string | null; created_at: string; assigned_by: string;
+  creator?: UserProfile;
   assignees: { user_id: string; user: UserProfile }[];
   attachments?: { id: string; file_type: string; file_url: string; created_at: string }[];
 }
@@ -71,9 +73,10 @@ export default function TasksPageInner() {
   const [openChatTaskId, setOpenChatTaskId] = useState<string | null>(null);
 
   const deptMembers = form.selectedDept
-    ? form.selectedDept === 'All Departments'
+    ? (form.selectedDept === 'All Departments'
       ? allUsers
       : allUsers.filter(u => u.department === form.selectedDept)
+    ).filter(u => u.id !== currentUser?.id)
     : [];
 
   useEffect(() => {
@@ -115,7 +118,7 @@ export default function TasksPageInner() {
   const loadTasks = async (userId: string) => {
     const { data: mine } = await supabase
       .from('tasks')
-      .select('*, task_assignees(user_id, users(id, full_name, email, department, work_role)), task_attachments(id, file_type, file_url, created_at)')
+      .select('*, creator:users!assigned_by(id, full_name, email, department, work_role), task_assignees(user_id, users(id, full_name, email, department, work_role)), task_attachments(id, file_type, file_url, created_at)')
       .eq('assigned_by', userId).order('created_at', { ascending: false });
 
     const { data: assignedToMe } = await supabase
@@ -127,7 +130,7 @@ export default function TasksPageInner() {
     if (ids.length > 0) {
       const { data: received } = await supabase
         .from('tasks')
-        .select('*, task_assignees(user_id, users(id, full_name, email, department, work_role)), task_attachments(id, file_type, file_url, created_at)')
+        .select('*, creator:users!assigned_by(id, full_name, email, department, work_role), task_assignees(user_id, users(id, full_name, email, department, work_role)), task_attachments(id, file_type, file_url, created_at)')
         .in('id', ids).order('created_at', { ascending: false });
       const seen = new Set(all.map((t: any) => t.id));
       (received || []).forEach((t: any) => { if (!seen.has(t.id)) all.push(t); });
@@ -367,6 +370,11 @@ export default function TasksPageInner() {
               {task.assigned_by === currentUser?.id && (
                 <span className="px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-600 font-medium">You assigned</span>
               )}
+              {task.assigned_by !== currentUser?.id && (
+                <span className="px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-600 font-medium">
+                  Assigned by {task.creator?.full_name || task.creator?.email || 'Someone'}
+                </span>
+              )}
             </div>
             {task.description && <p className={`text-sm mt-1.5 line-clamp-2 ${isCompleted ? 'text-emerald-600/60 line-through' : 'text-gray-500'}`}>{task.description}</p>}
             
@@ -465,7 +473,7 @@ export default function TasksPageInner() {
 
         {/* Real-time Task Chat */}
         {openChatTaskId === task.id && currentUser && (
-          <TaskChat taskId={task.id} currentUser={currentUser} />
+          <TaskChat task={task} currentUser={currentUser} />
         )}
       </div>
     );
@@ -957,7 +965,8 @@ interface Comment {
   users?: { full_name: string | null; email: string };
 }
 
-function TaskChat({ taskId, currentUser }: { taskId: string; currentUser: UserProfile }) {
+function TaskChat({ task, currentUser }: { task: Task; currentUser: UserProfile }) {
+  const taskId = task.id;
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState('');
@@ -1055,6 +1064,37 @@ function TaskChat({ taskId, currentUser }: { taskId: string; currentUser: UserPr
         comment: commentToSend,
       });
       if (error) throw error;
+
+      // Realtime Notification logic for chat messages
+      const recipientIds = new Set<string>();
+      
+      // Notify the creator of the task if they are not the sender
+      if (task.assigned_by && task.assigned_by !== currentUser.id) {
+        recipientIds.add(task.assigned_by);
+      }
+      
+      // Notify all assignees of the task if they are not the sender
+      if (task.assignees) {
+        task.assignees.forEach(a => {
+          if (a.user_id && a.user_id !== currentUser.id) {
+            recipientIds.add(a.user_id);
+          }
+        });
+      }
+
+      if (recipientIds.size > 0) {
+        const senderName = currentUser.full_name || currentUser.email || 'Someone';
+        const notifMsg = `💬 ${senderName} sent a message in "${task.title}": ${commentToSend.slice(0, 50)}${commentToSend.length > 50 ? '...' : ''}`;
+        
+        const notificationsToInsert = Array.from(recipientIds).map(uid => ({
+          user_id: uid,
+          task_id: taskId,
+          type: 'comment_added',
+          message: notifMsg
+        }));
+        
+        await supabase.from('notifications').insert(notificationsToInsert);
+      }
     } catch (err) {
       toast.error('Failed to send message');
       setText(commentToSend);
