@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Bell, X, CheckCheck } from 'lucide-react';
+import { Bell, X, CheckCheck, MessageSquare, CheckCircle2, CheckSquare, Clock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { loadNotifications, markNotificationRead } from '@/lib/data';
 import type { NotificationItem } from '@/lib/types';
@@ -10,12 +10,12 @@ import toast from 'react-hot-toast';
 const StyleInject = () => (
   <style>{`
     @keyframes slideDown {
-      from { transform: translateY(-120%); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
+      from { transform: translateY(-150%); opacity: 0; }
+      to { transform: translateY(12px); opacity: 1; }
     }
     @keyframes slideUp {
-      from { transform: translateY(0); opacity: 1; }
-      to { transform: translateY(-120%); opacity: 0; }
+      from { transform: translateY(12px); opacity: 1; }
+      to { transform: translateY(-150%); opacity: 0; }
     }
     @keyframes wiggle {
       0%, 100% { transform: rotate(0deg); }
@@ -64,7 +64,39 @@ const playNotificationSound = () => {
   }
 };
 
+const getNotificationTheme = (type: string) => {
+  switch (type) {
+    case 'comment_added':
+      return {
+        label: 'New Message',
+        bg: 'from-violet-500 to-purple-600 shadow-purple-100',
+        icon: MessageSquare,
+      };
+    case 'task_completed':
+      return {
+        label: 'Task Completed',
+        bg: 'from-emerald-500 to-teal-600 shadow-emerald-100',
+        icon: CheckCircle2,
+      };
+    case 'task_assigned':
+      return {
+        label: 'Task Assigned',
+        bg: 'from-blue-500 to-indigo-600 shadow-blue-100',
+        icon: CheckSquare,
+      };
+    default:
+      return {
+        label: 'Notification',
+        bg: 'from-amber-500 to-orange-600 shadow-amber-100',
+        icon: Bell,
+      };
+  }
+};
+
 const showNotificationToast = (notif: NotificationItem) => {
+  const theme = getNotificationTheme(notif.type);
+  const Icon = theme.icon;
+
   toast.custom((t) => (
     <div
       style={{
@@ -77,12 +109,12 @@ const showNotificationToast = (notif: NotificationItem) => {
     >
       <div className="flex-1 w-0 flex items-start gap-3">
         <div className="flex-shrink-0 pt-0.5">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-100 flex-shrink-0">
-            <Bell size={18} className="animate-wiggle" />
+          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${theme.bg} flex items-center justify-center text-white shadow-md flex-shrink-0`}>
+            <Icon size={18} className={notif.type === 'comment_added' ? '' : 'animate-wiggle'} />
           </div>
         </div>
         <div className="flex-1">
-          <p className="text-[11px] font-bold text-blue-600 uppercase tracking-wider">New Notification</p>
+          <p className="text-[11px] font-bold text-blue-600 uppercase tracking-wider">{theme.label}</p>
           <p className="text-sm font-semibold text-gray-900 mt-0.5 leading-snug">
             {notif.message}
           </p>
