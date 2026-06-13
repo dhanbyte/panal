@@ -24,37 +24,29 @@ export default function Register() {
 
     setLoading(true);
     try {
-      const { data: existing } = await supabase
-        .from('users')
-        .select('id')
-        .eq('phone', formData.phone)
-        .single();
-
-      if (existing) {
-        toast.error('Phone number already registered');
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('users')
-        .insert({
-          full_name: formData.fullName,
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fullName: formData.fullName,
           phone: formData.phone,
           department: formData.department,
-          email: `${formData.phone}@shopwave.com`,
-        })
-        .select()
-        .single();
+        }),
+      });
 
-      if (error) {
-        toast.error(`Registration failed: ${error.message}`);
+      const resData = await response.json();
+
+      if (!response.ok) {
+        toast.error(`Registration failed: ${resData.error || 'Could not create account'}`);
         return;
       }
 
-      localStorage.setItem('user', JSON.stringify(data));
+      localStorage.setItem('user', JSON.stringify(resData.user));
       toast.success('Account created successfully!');
       router.push('/dashboard');
-    } catch {
+    } catch (err: any) {
       toast.error('Registration failed. Please try again.');
     } finally {
       setLoading(false);
