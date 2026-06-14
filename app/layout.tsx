@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   title: 'ShopWave',
   description: 'Team task management and tracking application',
   manifest: '/manifest.json',
+};
+
+export const viewport = {
   themeColor: '#3B82F6',
 };
 
