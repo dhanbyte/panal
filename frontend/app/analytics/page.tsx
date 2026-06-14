@@ -9,6 +9,7 @@ import { loadLeaderboard } from '@/lib/data';
 import LeaderboardTable from '@/components/LeaderboardTable';
 import type { LeaderboardRow } from '@/lib/types';
 import { formatTime } from '@/lib/utils';
+import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 export default function Analytics() {
   const router = useRouter();
@@ -93,6 +94,61 @@ export default function Analytics() {
             <p className="text-3xl font-black text-blue-600 mt-2">{formatTime(averageCompletionTime)}</p>
           </div>
         </div>
+
+        {/* Charts Section */}
+        {!dataLoading && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+            {/* Pie Chart */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-sm font-bold text-gray-900 mb-4">Your Task Distribution</h2>
+              <div className="h-64 w-full">
+                {totalAssigned > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie 
+                        data={[
+                          { name: 'Completed', value: totalCompleted, color: '#10B981' },
+                          { name: 'Remaining', value: totalRemaining, color: '#F59E0B' }
+                        ]} 
+                        dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} stroke="none"
+                      >
+                        {[
+                          { name: 'Completed', value: totalCompleted, color: '#10B981' },
+                          { name: 'Remaining', value: totalRemaining, color: '#F59E0B' }
+                        ].map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-gray-400 text-sm">No tasks assigned to you yet</div>
+                )}
+              </div>
+            </div>
+
+            {/* Bar Chart */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-sm font-bold text-gray-900 mb-4">Top 5 Performers</h2>
+              <div className="h-64 w-full">
+                {leaderboard.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={leaderboard.slice(0, 5).map(r => ({ name: r.user?.full_name?.split(' ')[0] || 'Unknown', completed: r.tasks_completed }))} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6B7280' }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6B7280' }} />
+                      <RechartsTooltip cursor={{ fill: '#F3F4F6' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px' }} />
+                      <Bar dataKey="completed" fill="#3B82F6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-gray-400 text-sm">No data available</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Leaderboard */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
