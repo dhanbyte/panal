@@ -15,6 +15,7 @@ export default function Settings() {
     fullName: '',
     email: '',
   });
+  const [deleting, setDeleting] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
 
@@ -83,6 +84,29 @@ export default function Settings() {
       toast.success('Profile updated successfully!');
     } catch (error: any) {
       toast.error(error.message || 'Failed to update profile');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!confirm('Are you sure you want to completely delete your account? This action cannot be undone and all your tasks will be deleted.')) return;
+    
+    setDeleting(true);
+    try {
+      const res = await fetch('/api/auth/delete-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete account');
+      
+      localStorage.removeItem('user');
+      toast.success('Account deleted successfully');
+      router.push('/auth/login');
+    } catch (error: any) {
+      toast.error(error.message);
+      setDeleting(false);
     }
   };
 
@@ -158,8 +182,12 @@ export default function Settings() {
         {/* Danger Zone */}
         <div className="bg-red-50 rounded-lg border border-red-200 p-6">
           <h2 className="text-lg font-bold text-red-900 mb-4">Danger Zone</h2>
-          <button className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg transition-colors font-medium">
-            Delete Account
+          <button 
+            onClick={handleDeleteAccount}
+            disabled={deleting}
+            className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg transition-colors font-medium disabled:opacity-50"
+          >
+            {deleting ? 'Deleting...' : 'Delete Account'}
           </button>
         </div>
       </main>
