@@ -9,6 +9,7 @@ import {
   User, Users, Calendar, Search, Loader2, Mic, Building2,
   Square, Play, Pause, Trash2, Send, Plus, Volume2, MessageSquare,
   ChevronDown, ChevronRight, ArrowDownToLine, ArrowUpFromLine,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'partially_completed';
@@ -55,6 +56,8 @@ export default function TasksPageInner() {
   const [activeTab, setActiveTab] = useState<'received' | 'given'>('received');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
 
   // Audio (create modal)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -69,6 +72,7 @@ export default function TasksPageInner() {
   // Inline sub-panels
   const [openAudioTaskId, setOpenAudioTaskId] = useState<string | null>(null);
   const [openChatTaskId, setOpenChatTaskId] = useState<string | null>(null);
+  const [openImageTaskId, setOpenImageTaskId] = useState<string | null>(null);
 
   const deptMembers = form.selectedDept
     ? (form.selectedDept === 'All Departments' ? allUsers : allUsers.filter(u => u.department === form.selectedDept)).filter(u => u.id !== currentUser?.id)
@@ -204,12 +208,16 @@ export default function TasksPageInner() {
   const activeTasks = activeTab === 'received' ? myTasks : givenTasks;
 
   // Split: active vs completed
-  const filteredTasks = activeTasks.filter(t => filterStatus === 'all' || t.status === filterStatus);
+  const filteredTasks = activeTasks.filter(t => {
+    const matchesStatus = filterStatus === 'all' || t.status === filterStatus;
+    const matchesSearch = !searchQuery.trim() || t.title.toLowerCase().includes(searchQuery.toLowerCase()) || (t.description || '').toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesStatus && matchesSearch;
+  });
   const pendingTasks = filteredTasks.filter(t => t.status !== 'completed');
   const completedTasks = filteredTasks.filter(t => t.status === 'completed');
 
   const toggle = (id: string) => {
-    if (expandedId === id) { setExpandedId(null); setOpenAudioTaskId(null); setOpenChatTaskId(null); }
+    if (expandedId === id) { setExpandedId(null); setOpenAudioTaskId(null); setOpenChatTaskId(null); setOpenImageTaskId(null); }
     else setExpandedId(id);
   };
 
@@ -218,7 +226,8 @@ export default function TasksPageInner() {
     const open = expandedId === task.id;
     const done = task.status === 'completed';
     const cfg = STATUS_CFG[task.status] || STATUS_CFG.pending;
-    const audioCount = task.attachments?.length || 0;
+    const audioAttachments = task.attachments?.filter(a => a.file_type === 'audio') || [];
+    const imageAttachments = task.attachments?.filter(a => a.file_type === 'image') || [];
     const who = activeTab === 'received'
       ? (task.creator?.full_name?.split(' ')[0] || '?')
       : (task.assignees[0]?.user?.full_name?.split(' ')[0] || '?');
@@ -239,7 +248,9 @@ export default function TasksPageInner() {
             {task.title}
           </span>
           {/* Audio badge */}
-          {audioCount > 0 && <span className="text-blue-400"><Volume2 size={12} /></span>}
+          {audioAttachments.length > 0 && <span className="text-blue-400"><Volume2 size={12} /></span>}
+          {/* Image badge */}
+          {imageAttachments.length > 0 && <span className="text-pink-400"><ImageIcon size={12} /></span>}
           {/* Name */}
           <span className="text-[10px] text-gray-400 max-w-[50px] truncate">{who}</span>
           {/* Chevron */}
@@ -277,13 +288,29 @@ export default function TasksPageInner() {
               }
             </div>
 
-            {/* Voice notes */}
-            {audioCount > 0 && (
-              <div className="space-y-1">
-                <p className="text-[10px] font-semibold text-blue-500 flex items-center gap-1"><Volume2 size={10} /> Voice ({audioCount})</p>
-                {task.attachments!.map(att => (
-                  <audio key={att.id} src={att.file_url} controls className="w-full h-8" style={{ maxWidth: '100%' }} />
-                ))}
+            {/* Attachments */}
+            {(audioAttachments.length > 0 || imageAttachments.length > 0) && (
+              <div className="space-y-2">
+                {audioAttachments.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-blue-500 flex items-center gap-1"><Volume2 size={10} /> Voice ({audioAttachments.length})</p>
+                    {audioAttachments.map(att => (
+                      <audio key={att.id} src={att.file_url} controls className="w-full h-8" style={{ maxWidth: '100%' }} />
+                    ))}
+                  </div>
+                )}
+                {imageAttachments.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-pink-500 flex items-center gap-1"><ImageIcon size={10} /> Images ({imageAttachments.length})</p>
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {imageAttachments.map(att => (
+                        <a key={att.id} href={att.file_url} target="_blank" rel="noreferrer" className="flex-shrink-0">
+                          <img src={att.file_url} alt="Attachment" className="h-16 w-16 object-cover rounded-lg border border-gray-200 shadow-sm" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -300,18 +327,25 @@ export default function TasksPageInner() {
 
             {/* Action row */}
             <div className="flex gap-2">
-              <button onClick={() => setOpenAudioTaskId(openAudioTaskId === task.id ? null : task.id)}
-                className="flex-1 flex items-center justify-center gap-1 text-[11px] py-1.5 rounded-lg border border-gray-200 text-gray-500 active:bg-gray-100">
+              <button onClick={() => { setOpenAudioTaskId(openAudioTaskId === task.id ? null : task.id); setOpenChatTaskId(null); setOpenImageTaskId(null); }}
+                className={`flex-1 flex items-center justify-center gap-1 text-[11px] py-1.5 rounded-lg border transition-colors ${openAudioTaskId === task.id ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
                 <Mic size={11} /> Voice
               </button>
-              <button onClick={() => setOpenChatTaskId(openChatTaskId === task.id ? null : task.id)}
-                className="flex-1 flex items-center justify-center gap-1 text-[11px] py-1.5 rounded-lg border border-gray-200 text-gray-500 active:bg-gray-100">
+              <button onClick={() => { setOpenImageTaskId(openImageTaskId === task.id ? null : task.id); setOpenAudioTaskId(null); setOpenChatTaskId(null); }}
+                className={`flex-1 flex items-center justify-center gap-1 text-[11px] py-1.5 rounded-lg border transition-colors ${openImageTaskId === task.id ? 'border-pink-500 bg-pink-50 text-pink-600' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+                <ImageIcon size={11} /> Image
+              </button>
+              <button onClick={() => { setOpenChatTaskId(openChatTaskId === task.id ? null : task.id); setOpenAudioTaskId(null); setOpenImageTaskId(null); }}
+                className={`flex-1 flex items-center justify-center gap-1 text-[11px] py-1.5 rounded-lg border transition-colors ${openChatTaskId === task.id ? 'border-amber-500 bg-amber-50 text-amber-600' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
                 <MessageSquare size={11} /> Chat
               </button>
             </div>
 
             {openAudioTaskId === task.id && currentUser && (
               <InlineAudioRecorder taskId={task.id} userId={currentUser.id} onSaved={() => loadTasks(currentUser.id)} />
+            )}
+            {openImageTaskId === task.id && currentUser && (
+              <InlineImageUploader taskId={task.id} userId={currentUser.id} onSaved={() => loadTasks(currentUser.id)} />
             )}
             {openChatTaskId === task.id && currentUser && (
               <TaskChat task={task} currentUser={currentUser} />
@@ -327,11 +361,29 @@ export default function TasksPageInner() {
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between mb-3">
         <h1 className="text-lg font-bold text-gray-900">Tasks</h1>
-        <button onClick={() => setShowModal(true)}
-          className="flex items-center gap-1 bg-blue-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg active:bg-blue-600">
-          <Plus size={14} /> New
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowSearch(!showSearch)} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
+            {showSearch ? <X size={18} /> : <Search size={18} />}
+          </button>
+          <button onClick={() => setShowModal(true)}
+            className="flex items-center gap-1 bg-blue-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg active:bg-blue-600">
+            <Plus size={14} /> New
+          </button>
+        </div>
       </div>
+
+      {showSearch && (
+        <div className="mb-3">
+          <input
+            autoFocus
+            type="text"
+            placeholder="Search tasks by title or description..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+          />
+        </div>
+      )}
 
       {/* ── Tab Toggle (small pills) ── */}
       <div className="flex gap-2 mb-3">
@@ -600,6 +652,64 @@ function InlineAudioRecorder({ taskId, userId, onSaved }: { taskId: string; user
             <button onClick={discard} className="text-gray-400 hover:text-red-500"><Trash2 size={10} /></button>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════ Inline Image Uploader ═══════ */
+function InlineImageUploader({ taskId, userId, onSaved }: { taskId: string; userId: string; onSaved: () => void }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const f = e.target.files[0];
+      setFile(f);
+      setPreview(URL.createObjectURL(f));
+      setSaved(false);
+    }
+  };
+
+  const upload = async () => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fn = `${userId}/${taskId}-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const { data, error } = await supabase.storage.from('task-attachments').upload(fn, file, { contentType: file.type, upsert: false });
+      if (error) throw error;
+      const { data: pub } = supabase.storage.from('task-attachments').getPublicUrl(data.path);
+      await supabase.from('task_attachments').insert({ task_id: taskId, file_type: 'image', file_url: pub.publicUrl, file_name: fn, file_size: file.size });
+      toast.success('📸 Image uploaded!'); setSaved(true); onSaved();
+      setFile(null); setPreview(null);
+    } catch (e: any) { toast.error(e.message || 'Upload Failed'); }
+    finally { setUploading(false); }
+  };
+
+  const discard = () => { setFile(null); setPreview(null); setSaved(false); if (fileInputRef.current) fileInputRef.current.value = ''; };
+
+  return (
+    <div className="bg-gray-50 border border-gray-200 rounded-lg p-2.5">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[10px] font-semibold text-gray-500 flex items-center gap-1"><ImageIcon size={10} className="text-pink-500" /> Upload Image</span>
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleSelect} />
+        <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1 bg-white border border-gray-300 text-gray-700 px-2 py-1 rounded text-[10px] font-medium hover:bg-gray-50">
+          Choose File
+        </button>
+        {preview && (
+          <div className="flex items-center gap-2">
+            <img src={preview} alt="Preview" className="h-6 w-6 object-cover rounded border border-gray-300" />
+            <span className="text-[9px] text-gray-500 max-w-[80px] truncate" title={file?.name}>{file?.name}</span>
+            {!saved && <button onClick={upload} disabled={uploading} className="bg-pink-500 text-white px-2 py-1 rounded text-[10px] font-medium disabled:opacity-50">{uploading ? '...' : 'Upload'}</button>}
+            <button onClick={discard} className="text-gray-400 hover:text-red-500"><Trash2 size={10} /></button>
+          </div>
+        )}
+        {saved && <span className="text-[10px] text-emerald-500 font-medium ml-2">✓ Saved</span>}
       </div>
     </div>
   );
