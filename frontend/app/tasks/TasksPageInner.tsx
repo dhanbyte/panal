@@ -224,14 +224,20 @@ export default function TasksPageInner() {
       : (task.assignees[0]?.user?.full_name?.split(' ')[0] || '?');
 
     return (
-      <div className={`border-b last:border-b-0 ${done ? 'border-emerald-100' : 'border-gray-100'}`}>
+      <div className={`mb-2 rounded-xl transition-all duration-200 overflow-hidden bg-white ${
+        done 
+          ? 'border border-emerald-200 bg-emerald-50/20' 
+          : open 
+            ? 'border-2 border-blue-500 shadow-md shadow-blue-100' 
+            : 'border-2 border-black hover:border-blue-400 shadow-sm'
+      }`}>
         {/* ── Row ── */}
         <button onClick={() => toggle(task.id)}
-          className={`w-full flex items-center gap-2 px-3 py-2.5 text-left active:bg-gray-50 transition-colors ${done ? 'opacity-60' : ''}`}>
+          className={`w-full flex items-center gap-2 px-4 py-3 text-left active:bg-gray-50 transition-colors ${done ? 'opacity-60' : ''}`}>
           {/* Status dot */}
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${done ? 'bg-emerald-400' : task.status === 'in_progress' ? 'bg-blue-500 animate-pulse' : 'bg-amber-400'}`} />
           {/* Title */}
-          <span className={`flex-1 text-[13px] font-medium truncate ${done ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+          <span className={`flex-1 text-[14px] font-bold truncate ${done ? 'line-through text-gray-400' : 'text-black'}`}>
             {task.title}
           </span>
           {/* Audio badge */}
@@ -244,7 +250,7 @@ export default function TasksPageInner() {
 
         {/* ── Expanded details ── */}
         {open && (
-          <div className="px-3 pb-3 pt-1 space-y-2 bg-gray-50/50">
+          <div className="px-4 pb-4 pt-1 space-y-2 bg-white">
             {/* Status + due */}
             <div className="flex items-center gap-2 flex-wrap">
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
@@ -379,7 +385,7 @@ export default function TasksPageInner() {
         <>
           {/* Pending/Active */}
           {pendingTasks.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-3">
+            <div className="mb-4">
               {pendingTasks.map(t => <TaskRow key={t.id} task={t} />)}
             </div>
           )}
@@ -387,10 +393,10 @@ export default function TasksPageInner() {
           {/* Completed section */}
           {completedTasks.length > 0 && (
             <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-1.5 flex items-center gap-1">
-                <CheckCircle2 size={10} /> Completed ({completedTasks.length})
+              <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider px-1 mb-2 flex items-center gap-1">
+                <CheckCircle2 size={12} /> Completed ({completedTasks.length})
               </p>
-              <div className="bg-emerald-50/50 rounded-xl border border-emerald-100 overflow-hidden">
+              <div className="opacity-80">
                 {completedTasks.map(t => <TaskRow key={t.id} task={t} />)}
               </div>
             </div>
