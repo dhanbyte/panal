@@ -225,19 +225,17 @@ export default function TasksPageInner() {
 
     return (
       <div className={`mb-2 rounded-xl transition-all duration-200 overflow-hidden bg-white ${
-        done 
-          ? 'border border-emerald-200 bg-emerald-50/20' 
-          : open 
-            ? 'border-2 border-blue-500 shadow-md shadow-blue-100' 
-            : 'border-2 border-black hover:border-blue-400 shadow-sm'
+        open 
+          ? 'border-2 border-blue-500 shadow-md shadow-blue-100' 
+          : 'border-2 border-black hover:border-blue-400 shadow-sm'
       }`}>
         {/* ── Row ── */}
         <button onClick={() => toggle(task.id)}
-          className={`w-full flex items-center gap-2 px-4 py-3 text-left active:bg-gray-50 transition-colors ${done ? 'opacity-60' : ''}`}>
+          className="w-full flex items-center gap-2 px-4 py-3 text-left active:bg-gray-50 transition-colors">
           {/* Status dot */}
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${done ? 'bg-emerald-400' : task.status === 'in_progress' ? 'bg-blue-500 animate-pulse' : 'bg-amber-400'}`} />
           {/* Title */}
-          <span className={`flex-1 text-[14px] font-bold truncate ${done ? 'line-through text-gray-400' : 'text-black'}`}>
+          <span className={`flex-1 text-[14px] font-bold truncate text-black ${done ? 'line-through decoration-gray-400' : ''}`}>
             {task.title}
           </span>
           {/* Audio badge */}
@@ -396,7 +394,7 @@ export default function TasksPageInner() {
               <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider px-1 mb-2 flex items-center gap-1">
                 <CheckCircle2 size={12} /> Completed ({completedTasks.length})
               </p>
-              <div className="opacity-80">
+              <div className="mt-1">
                 {completedTasks.map(t => <TaskRow key={t.id} task={t} />)}
               </div>
             </div>
