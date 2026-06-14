@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Navbar from '@/components/Navbar';
-import { Save } from 'lucide-react';
+import { Save, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Settings() {
@@ -15,6 +15,8 @@ export default function Settings() {
     fullName: '',
     email: '',
   });
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
 
   useEffect(() => {
     const checkAuth = () => {
@@ -38,7 +40,29 @@ export default function Settings() {
     };
 
     checkAuth();
+
+    // PWA Install Prompt Listener
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
   }, [router]);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setIsInstallable(false);
+    }
+    setDeferredPrompt(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +94,26 @@ export default function Settings() {
       <Navbar />
       <main className="max-w-2xl mx-auto px-4 py-8 pb-20 md:pb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Settings</h1>
+
+        {/* App Settings Section */}
+        {isInstallable && (
+          <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-6 mb-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">App Features</h2>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-gray-900">Install ShopWave App</p>
+                <p className="text-xs text-gray-500 mt-1">Get the full native experience on your phone.</p>
+              </div>
+              <button
+                onClick={handleInstallClick}
+                className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-4 py-2 rounded-lg transition-colors font-medium text-sm shadow-md"
+              >
+                <Download size={18} />
+                Install
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Profile Section */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
