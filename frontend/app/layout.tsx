@@ -6,6 +6,8 @@ import Navbar from '@/components/Navbar';
 export const metadata: Metadata = {
   title: 'ShopWave',
   description: 'Team task management and tracking application',
+  manifest: '/manifest.json',
+  themeColor: '#3B82F6',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
