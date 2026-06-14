@@ -14,14 +14,13 @@ export default function Login() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (phone.length !== 10) {
       toast.error('Please enter valid 10 digit phone number');
       return;
     }
 
     setLoading(true);
-
     try {
       const { data: user, error } = await supabase
         .from('users')
@@ -31,16 +30,15 @@ export default function Login() {
 
       if (error || !user) {
         toast.error('Phone number not found. Please sign up first.');
-        setLoading(false);
         return;
       }
 
       localStorage.setItem('user', JSON.stringify(user));
       toast.success('Login successful!');
       router.push('/dashboard');
-      
-    } catch (error) {
+    } catch {
       toast.error('Login failed. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
@@ -73,9 +71,6 @@ export default function Login() {
                 maxLength={10}
               />
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Enter your registered 10-digit mobile number
-            </p>
           </div>
 
           <button

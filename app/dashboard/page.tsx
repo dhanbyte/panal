@@ -1,27 +1,50 @@
 'use client';
 
-import ProtectedLayout from '@/components/ProtectedLayout';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Navbar from '@/components/Navbar';
+import Dashboard from '@/components/Dashboard';
+import { Loader2 } from 'lucide-react';
 
-export default function Dashboard() {
-  return (
-    <ProtectedLayout>
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
-            <h3 className="text-gray-600 text-sm font-medium">Total Tasks</h3>
-            <p className="text-3xl font-bold text-gray-900 mt-2">0</p>
-          </div>
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
-            <h3 className="text-gray-600 text-sm font-medium">Completed</h3>
-            <p className="text-3xl font-bold text-gray-900 mt-2">0</p>
-          </div>
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
-            <h3 className="text-gray-600 text-sm font-medium">In Progress</h3>
-            <p className="text-3xl font-bold text-gray-900 mt-2">0</p>
-          </div>
-        </div>
+export default function DashboardPage() {
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = () => {
+      try {
+        const userStr = localStorage.getItem('user');
+        if (!userStr) {
+          router.push('/auth/login');
+        } else {
+          setUser(JSON.parse(userStr));
+        }
+      } catch (error) {
+        console.error('Auth error:', error);
+        router.push('/auth/login');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [router]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="animate-spin text-blue-500" size={32} />
       </div>
-    </ProtectedLayout>
+    );
+  }
+  
+  if (!user) return null;
+
+  return (
+    <main className="min-h-screen bg-gray-50">
+      <Navbar />
+      <Dashboard user={user} />
+    </main>
   );
 }

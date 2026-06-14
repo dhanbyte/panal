@@ -59,6 +59,7 @@ export interface LeaderboardRow {
   name: string;
   tasks_completed: number;
   tasks_assigned: number;
+  tasks_remaining: number;
   avg_completion_time: number;
   total_time_spent: number;
   score: number;
