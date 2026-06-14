@@ -8,6 +8,7 @@ import {
   X, CheckSquare, Clock, AlertCircle, CheckCircle2,
   User, Users, Calendar, Search, Loader2, Mic, Building2,
   Square, Play, Pause, Trash2, Send, Plus, Volume2, MessageSquare,
+  ChevronDown, ChevronRight,
 } from 'lucide-react';
 
 type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'partially_completed';
@@ -41,6 +42,25 @@ const getLocalDateString = (offsetDays = 0) => {
 
 const defaultForm = () => ({ title: '', description: '', due_date: '', time_hours: '', selectedDept: '', selectedUsers: [] as string[] });
 
+/* ───────── Progress Ring (SVG) ───────── */
+function ProgressRing({ pct, size = 28, stroke = 3 }: { pct: number; size?: number; stroke?: number }) {
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (pct / 100) * circ;
+  const color = pct >= 100 ? '#10b981' : pct > 0 ? '#3b82f6' : '#d1d5db';
+  return (
+    <svg width={size} height={size} className="flex-shrink-0 -rotate-90">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e5e7eb" strokeWidth={stroke} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+        strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" className="transition-all duration-500" />
+      <text x="50%" y="50%" textAnchor="middle" dy=".35em" className="rotate-90 origin-center"
+        style={{ fontSize: size < 30 ? '7px' : '9px', fill: '#6b7280', fontWeight: 600 }}>
+        {pct}%
+      </text>
+    </svg>
+  );
+}
+
 export default function TasksPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -55,6 +75,11 @@ export default function TasksPageInner() {
   const [filterStatus, setFilterStatus]     = useState('all');
   const [searchQuery, setSearchQuery]       = useState('');
   const [form, setForm]                     = useState(defaultForm());
+
+  // Tab: which list is active
+  const [activeTab, setActiveTab] = useState<'received' | 'given'>('received');
+  // Accordion: which task is expanded (null = all collapsed)
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
 
   // Audio recording state (inside create-task modal)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -229,15 +254,19 @@ export default function TasksPageInner() {
       }
 
       // 1. Create the task
-      const { data: task, error } = await supabase.from('tasks').insert({
+      const taskData: any = {
         title: form.title,
         description: form.description || null,
         due_date: form.due_date || null,
         assigned_by: currentUser.id,
-        department_id: departmentId,
         status: 'pending',
         progress_percentage: 0,
-      }).select().single();
+      };
+      // Only include department_id if we found a valid one
+      if (departmentId) {
+        taskData.department_id = departmentId;
+      }
+      const { data: task, error } = await supabase.from('tasks').insert(taskData).select().single();
       if (error) throw error;
 
       // Ensure that if assigning to others, the creator is NOT assigned to it
@@ -257,7 +286,6 @@ export default function TasksPageInner() {
           audioPublicUrl = await uploadAudioForTask(task.id, audioBlob, currentUser.id);
         } catch (audioErr: any) {
           console.error('Audio upload failed:', audioErr);
-          // Don't block task creation if audio upload fails
         }
       }
 
@@ -306,7 +334,6 @@ export default function TasksPageInner() {
       const task = tasks.find(t => t.id === taskId);
       if (task) {
         const statusLabel = STATUS_CONFIG[newStatus]?.label || newStatus;
-        // Notify the assigner
         if (task.assigned_by !== currentUser.id) {
           await supabase.from('notifications').insert({
             user_id: task.assigned_by,
@@ -339,235 +366,276 @@ export default function TasksPageInner() {
   const tasksAssignedToMe = filteredTasks.filter(t => t.assignees.some(a => a.user_id === currentUser?.id));
   const tasksAssignedByMe = filteredTasks.filter(t => t.assigned_by === currentUser?.id && !t.assignees.some(a => a.user_id === currentUser?.id));
 
-  const renderTaskCard = (task: Task) => {
-    const cfg = STATUS_CONFIG[task.status];
-    const Icon = cfg.icon;
-    const isCompleted = task.status === 'completed';
-    return (
-      <div key={task.id} className={`relative rounded-2xl p-5 transition-all duration-300 ${
-        isCompleted 
-          ? 'bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 border-2 border-emerald-300 shadow-emerald-100 shadow-sm' 
-          : 'bg-white border border-gray-200 hover:shadow-md'
-      }`}>
-        {/* Completed overlay checkmark */}
-        {isCompleted && (
-          <div className="absolute top-3 right-3 w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-200 animate-bounce" style={{ animationDuration: '2s', animationIterationCount: 1 }}>
-            <CheckCircle2 size={18} className="text-white" />
-          </div>
-        )}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className={`font-semibold truncate ${isCompleted ? 'line-through text-emerald-700 decoration-emerald-400 decoration-2' : 'text-gray-900'}`}>{task.title}</h3>
-              <span className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${cfg.color}`}>
-                <Icon size={12} /> {cfg.label}
-              </span>
-              {isCompleted && (
-                <span className="px-2.5 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-700 font-bold border border-emerald-200">
-                  ✅ Done
-                </span>
-              )}
-              {task.assigned_by === currentUser?.id && (
-                <span className="px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-600 font-medium">You assigned</span>
-              )}
-              {task.assigned_by !== currentUser?.id && (
-                <span className="px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-600 font-medium">
-                  Assigned by {task.creator?.full_name || task.creator?.email || 'Someone'}
-                </span>
-              )}
-            </div>
-            {task.description && <p className={`text-sm mt-1.5 line-clamp-2 ${isCompleted ? 'text-emerald-600/60 line-through' : 'text-gray-500'}`}>{task.description}</p>}
-            
-            {/* Assignees */}
-            <div className="flex items-center gap-2 mt-3 flex-wrap">
-              <Users size={14} className={isCompleted ? 'text-emerald-400' : 'text-gray-400'} />
-              {task.assignees.map(a => (
-                <span key={a.user_id} className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full ${
-                  isCompleted ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'
-                }`}>
-                  <User size={10} /> {a.user?.full_name || a.user?.email || 'Unknown'}
-                </span>
-              ))}
-            </div>
+  const activeTasks = activeTab === 'received' ? tasksAssignedToMe : tasksAssignedByMe;
 
-            {/* Due date */}
-            {task.due_date && (
-              <div className={`flex items-center gap-1 mt-2 text-xs ${isCompleted ? 'text-emerald-500' : 'text-amber-600'}`}>
-                <Calendar size={12} /> {isCompleted ? '✅ Completed' : 'Due'}: {new Date(task.due_date).toLocaleDateString('en-IN')}
-              </div>
+  // Toggle expand
+  const toggleExpand = (taskId: string) => {
+    setExpandedTaskId(prev => prev === taskId ? null : taskId);
+    // Close sub-panels when collapsing
+    if (expandedTaskId === taskId) {
+      setOpenAudioTaskId(null);
+      setOpenChatTaskId(null);
+    }
+  };
+
+  /* ─── Compact Task Row (Accordion Item) ─── */
+  const renderCompactTask = (task: Task) => {
+    const cfg = STATUS_CONFIG[task.status];
+    const isCompleted = task.status === 'completed';
+    const isExpanded = expandedTaskId === task.id;
+    const audioCount = task.attachments?.length || 0;
+
+    // Name to show — small
+    const displayName = activeTab === 'received'
+      ? (task.creator?.full_name || task.creator?.email?.split('@')[0] || '?')
+      : (task.assignees.length > 0
+          ? (task.assignees[0].user?.full_name || task.assignees[0].user?.email?.split('@')[0] || '?')
+          : '—');
+    const assigneeCount = task.assignees.length;
+
+    // Due date compact
+    const dueText = task.due_date
+      ? new Date(task.due_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+      : null;
+
+    return (
+      <div key={task.id} className={`rounded-xl border transition-all duration-200 overflow-hidden ${
+        isCompleted
+          ? 'border-emerald-200 bg-emerald-50/40'
+          : isExpanded
+            ? 'border-blue-200 bg-white shadow-md shadow-blue-50'
+            : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+      }`}>
+        {/* ── Collapsed Row (always visible) ── */}
+        <button
+          onClick={() => toggleExpand(task.id)}
+          className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left group"
+        >
+          {/* Progress Ring */}
+          <ProgressRing pct={task.progress_percentage} size={26} stroke={2.5} />
+
+          {/* Title */}
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm font-semibold truncate leading-tight ${
+              isCompleted ? 'line-through text-emerald-600 decoration-emerald-400' : 'text-gray-900'
+            }`}>
+              {task.title}
+            </p>
+            {/* Tiny status + audio count */}
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className={`inline-flex items-center gap-0.5 px-1.5 py-0 rounded text-[10px] font-medium ${cfg.color}`}>
+                {cfg.label}
+              </span>
+              {audioCount > 0 && (
+                <span className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 font-medium">
+                  <Volume2 size={9} /> {audioCount}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Name badge (small) */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">
+              {displayName[0]?.toUpperCase()}
+            </div>
+            <span className="text-[10px] text-gray-500 max-w-[60px] truncate hidden sm:inline">
+              {displayName.split(' ')[0]}
+            </span>
+            {activeTab === 'given' && assigneeCount > 1 && (
+              <span className="text-[9px] text-gray-400 font-medium">+{assigneeCount - 1}</span>
             )}
           </div>
 
-          {/* Status changer for assignees */}
-          {task.assignees.some(a => a.user_id === currentUser?.id) && (
-            <select value={task.status} onChange={e => handleStatusChange(task.id, e.target.value as TaskStatus)}
-              className={`text-xs border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 cursor-pointer min-w-[100px] ${
-                isCompleted 
-                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700 focus:ring-emerald-400' 
-                  : 'border-gray-200 bg-white focus:ring-blue-400'
-              }`}>
-              <option value="pending">Pending</option>
-              <option value="in_progress">In Progress</option>
-              <option value="partially_completed">Partial</option>
-              <option value="completed">Completed ✅</option>
-            </select>
+          {/* Timer / Due */}
+          {dueText && (
+            <span className={`text-[10px] font-medium flex-shrink-0 px-1.5 py-0.5 rounded ${
+              isCompleted ? 'text-emerald-600 bg-emerald-100' : 'text-amber-600 bg-amber-50'
+            }`}>
+              {dueText}
+            </span>
           )}
-        </div>
 
-        {/* Progress bar */}
-        {task.status !== 'pending' && (
-          <div className="mt-3">
-            <div className={`flex justify-between text-xs mb-1 ${isCompleted ? 'text-emerald-600 font-semibold' : 'text-gray-500'}`}>
-              <span>{isCompleted ? '🎉 Task Complete!' : 'Progress'}</span><span>{task.progress_percentage}%</span>
-            </div>
-            <div className={`w-full rounded-full h-2 ${isCompleted ? 'bg-emerald-200' : 'bg-gray-100'}`}>
-              <div className={`h-2 rounded-full transition-all duration-500 ${
-                isCompleted ? 'bg-gradient-to-r from-emerald-400 via-green-500 to-teal-500' : 'bg-gradient-to-r from-blue-500 to-indigo-500'
-              }`} style={{ width: `${task.progress_percentage}%` }} />
-            </div>
+          {/* Chevron */}
+          <div className={`flex-shrink-0 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+            <ChevronDown size={14} />
           </div>
-        )}
+        </button>
 
-        {/* Audio voice notes */}
-        {task.attachments && task.attachments.length > 0 && (
-          <div className="mt-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl space-y-2">
-            <p className="text-[11px] font-bold text-blue-500 uppercase tracking-wider flex items-center gap-1.5">
-              <Volume2 size={12} /> Voice Notes ({task.attachments.length})
-            </p>
-            <div className="space-y-1.5">
-              {task.attachments.map((att) => (
-                <div key={att.id} className="flex items-center gap-2 bg-white/80 rounded-lg px-3 py-2">
-                  <audio src={att.file_url} controls className="h-8 w-full max-w-[280px]" />
-                  <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                    {new Date(att.created_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+        {/* ── Expanded Content ── */}
+        {isExpanded && (
+          <div className="px-3 pb-3 space-y-2.5 border-t border-gray-100 pt-2.5 animate-in slide-in-from-top-1 duration-200">
+            {/* Description */}
+            {task.description && (
+              <p className="text-xs text-gray-600 leading-relaxed bg-gray-50 rounded-lg px-3 py-2">
+                {task.description}
+              </p>
+            )}
+
+            {/* Assignees (compact) */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">
+                {activeTab === 'received' ? 'From:' : 'To:'}
+              </span>
+              {activeTab === 'received' ? (
+                <span className="flex items-center gap-1 text-xs text-gray-700 bg-gray-100 px-2 py-0.5 rounded-full">
+                  <User size={10} /> {task.creator?.full_name || task.creator?.email || 'Unknown'}
+                </span>
+              ) : (
+                task.assignees.map(a => (
+                  <span key={a.user_id} className="flex items-center gap-1 text-xs text-gray-700 bg-gray-100 px-2 py-0.5 rounded-full">
+                    <User size={10} /> {a.user?.full_name || a.user?.email || 'Unknown'}
                   </span>
-                </div>
-              ))}
+                ))
+              )}
             </div>
+
+            {/* Voice Notes */}
+            {audioCount > 0 && (
+              <div className="bg-blue-50/60 border border-blue-100 rounded-lg p-2.5 space-y-1.5">
+                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1">
+                  <Volume2 size={10} /> Voice Notes ({audioCount})
+                </p>
+                {task.attachments!.map((att) => (
+                  <div key={att.id} className="flex items-center gap-2 bg-white/80 rounded-lg px-2 py-1.5">
+                    <audio src={att.file_url} controls className="h-7 w-full max-w-[240px]" style={{ minWidth: 0 }} />
+                    <span className="text-[9px] text-gray-400 whitespace-nowrap">
+                      {new Date(att.created_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Status changer (for assigned tasks) */}
+            {task.assignees.some(a => a.user_id === currentUser?.id) && (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-gray-400 font-medium">Status:</span>
+                <select value={task.status} onChange={e => handleStatusChange(task.id, e.target.value as TaskStatus)}
+                  className={`text-xs border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 cursor-pointer ${
+                    isCompleted
+                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700 focus:ring-emerald-400'
+                      : 'border-gray-200 bg-white focus:ring-blue-400'
+                  }`}>
+                  <option value="pending">Pending</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="partially_completed">Partial</option>
+                  <option value="completed">Completed ✅</option>
+                </select>
+              </div>
+            )}
+
+            {/* Action buttons (Voice Note + Chat) */}
+            <div className="flex items-center gap-2">
+              <button onClick={() => setOpenAudioTaskId(openAudioTaskId === task.id ? null : task.id)}
+                className={`flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg border transition-all ${
+                  openAudioTaskId === task.id ? 'bg-red-50 border-red-200 text-red-600' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600'
+                }`}>
+                <Mic size={11} /> {openAudioTaskId === task.id ? 'Close' : 'Voice Note'}
+              </button>
+
+              <button onClick={() => setOpenChatTaskId(openChatTaskId === task.id ? null : task.id)}
+                className={`flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg border transition-all ${
+                  openChatTaskId === task.id ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600'
+                }`}>
+                <MessageSquare size={11} /> {openChatTaskId === task.id ? 'Close' : 'Discussion'}
+              </button>
+            </div>
+
+            {/* Inline audio recorder */}
+            {openAudioTaskId === task.id && currentUser && (
+              <InlineAudioRecorder taskId={task.id} userId={currentUser.id} onSaved={() => loadTasks(currentUser.id)} />
+            )}
+
+            {/* Real-time Task Chat */}
+            {openChatTaskId === task.id && currentUser && (
+              <TaskChat task={task} currentUser={currentUser} />
+            )}
           </div>
-        )}
-
-        {/* Record voice note button and Chat button */}
-        <div className="mt-3 flex items-center gap-3 flex-wrap">
-          <button onClick={() => setOpenAudioTaskId(openAudioTaskId === task.id ? null : task.id)}
-            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border transition-all ${
-              openAudioTaskId === task.id ? 'bg-red-50 border-red-200 text-red-600' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600'
-            }`}>
-            <Mic size={13} /> {openAudioTaskId === task.id ? 'Close Recorder' : 'Add Voice Note'}
-          </button>
-
-          <button onClick={() => setOpenChatTaskId(openChatTaskId === task.id ? null : task.id)}
-            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border transition-all ${
-              openChatTaskId === task.id ? 'bg-blue-50 border-blue-200 text-blue-600 shadow-sm' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600'
-            }`}>
-            <MessageSquare size={13} /> {openChatTaskId === task.id ? 'Close Chat' : 'Chat / Messages'}
-          </button>
-        </div>
-
-        {/* Inline audio recorder for existing task */}
-        {openAudioTaskId === task.id && currentUser && (
-          <div className="mt-3">
-            <InlineAudioRecorder taskId={task.id} userId={currentUser.id} onSaved={() => loadTasks(currentUser.id)} />
-          </div>
-        )}
-
-        {/* Real-time Task Chat */}
-        {openChatTaskId === task.id && currentUser && (
-          <TaskChat task={task} currentUser={currentUser} />
         )}
       </div>
     );
   };
 
   return (
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
-            <p className="text-sm text-gray-500 mt-0.5">{tasks.length} total tasks</p>
+            <h1 className="text-xl font-bold text-gray-900">Tasks</h1>
+            <p className="text-xs text-gray-500 mt-0.5">{tasks.length} total</p>
           </div>
           <button onClick={() => setShowModal(true)}
-                  className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-blue-200 transition-all">
-            <Plus size={16} /> New Task
+                  className="flex items-center gap-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-blue-200 transition-all">
+            <Plus size={15} /> New Task
           </button>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        {/* ── Tab Toggle ── */}
+        <div className="flex bg-gray-100 rounded-xl p-1 mb-4">
+          <button
+            onClick={() => setActiveTab('received')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === 'received'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            📥 Assigned to Me
+            <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
+              activeTab === 'received' ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'
+            }`}>
+              {tasksAssignedToMe.length}
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab('given')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === 'given'
+                ? 'bg-white text-purple-600 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            📤 Assigned by Me
+            <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
+              activeTab === 'given' ? 'bg-purple-100 text-purple-700' : 'bg-gray-200 text-gray-500'
+            }`}>
+              {tasksAssignedByMe.length}
+            </span>
+          </button>
+        </div>
+
+        {/* ── Search + Status Filter (compact) ── */}
+        <div className="flex gap-2 mb-4 items-center">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
-            <input type="text" placeholder="Search tasks..." value={searchQuery}
+            <Search className="absolute left-2.5 top-2 text-gray-400" size={14} />
+            <input type="text" placeholder="Search..." value={searchQuery}
                    onChange={e => setSearchQuery(e.target.value)}
-                   className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                   className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
-          <div className="flex gap-2 overflow-x-auto">
+          <div className="flex gap-1 overflow-x-auto">
             {['all', 'pending', 'in_progress', 'completed'].map(s => (
                 <button key={s} onClick={() => setFilterStatus(s)}
-                        className={`px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
-                            filterStatus === s ? 'bg-blue-500 text-white shadow-md shadow-blue-200' : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300'
+                        className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all ${
+                            filterStatus === s ? 'bg-blue-500 text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-500 hover:border-blue-300'
                         }`}>
-                  {s === 'all' ? 'All' : s === 'in_progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)}
+                  {s === 'all' ? 'All' : s === 'in_progress' ? 'Active' : s.charAt(0).toUpperCase() + s.slice(1)}
                 </button>
             ))}
           </div>
         </div>
 
-        {/* Task Columns (Differentiated and Responsive) */}
-        {filteredTasks.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">
-              <CheckSquare className="mx-auto text-gray-300 mb-3" size={48} />
-              <p className="text-gray-500">No tasks found. Create one!</p>
+        {/* ── Task List (Accordion) ── */}
+        {activeTasks.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
+              <CheckSquare className="mx-auto text-gray-300 mb-2" size={36} />
+              <p className="text-gray-400 text-sm font-medium">
+                {activeTab === 'received' ? 'No tasks assigned to you' : 'No tasks assigned by you'}
+              </p>
             </div>
         ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-              {/* Column 1: Tasks Assigned to Me (Received) */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50/50 border border-blue-100 rounded-2xl px-4 py-3.5 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
-                    <h2 className="font-bold text-gray-800 text-sm md:text-base">📥 Assigned to Me (Received)</h2>
-                  </div>
-                  <span className="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full">
-                    {tasksAssignedToMe.length}
-                  </span>
-                </div>
-                
-                {tasksAssignedToMe.length === 0 ? (
-                  <div className="text-center py-12 bg-white rounded-2xl border border-gray-200/80">
-                    <CheckSquare className="mx-auto text-gray-300 mb-2" size={36} />
-                    <p className="text-gray-400 text-xs font-semibold">No tasks assigned to you</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {tasksAssignedToMe.map(task => renderTaskCard(task))}
-                  </div>
-                )}
-              </div>
-
-              {/* Column 2: Tasks I Assigned to Others (Given) */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between bg-gradient-to-r from-purple-50 to-pink-50/50 border border-purple-100 rounded-2xl px-4 py-3.5 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse" />
-                    <h2 className="font-bold text-gray-800 text-sm md:text-base">📤 Assigned by Me (Given)</h2>
-                  </div>
-                  <span className="bg-purple-100 text-purple-800 text-xs font-bold px-3 py-1 rounded-full">
-                    {tasksAssignedByMe.length}
-                  </span>
-                </div>
-                
-                {tasksAssignedByMe.length === 0 ? (
-                  <div className="text-center py-12 bg-white rounded-2xl border border-gray-200/80">
-                    <CheckSquare className="mx-auto text-gray-300 mb-2" size={36} />
-                    <p className="text-gray-400 text-xs font-semibold">No tasks assigned by you</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {tasksAssignedByMe.map(task => renderTaskCard(task))}
-                  </div>
-                )}
-              </div>
+            <div className="space-y-2">
+              {activeTasks.map(task => renderCompactTask(task))}
             </div>
         )}
 
@@ -905,46 +973,46 @@ function InlineAudioRecorder({ taskId, userId, onSaved }: { taskId: string; user
   };
 
   return (
-    <div className="bg-gradient-to-r from-gray-50 to-blue-50/50 border border-gray-200 rounded-xl p-4">
+    <div className="bg-gradient-to-r from-gray-50 to-blue-50/50 border border-gray-200 rounded-xl p-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
-          <Mic size={13} className="text-blue-500" /> Record Voice Note
+        <span className="text-[11px] font-semibold text-gray-600 flex items-center gap-1">
+          <Mic size={11} className="text-blue-500" /> Record Voice Note
         </span>
         {recording && (
-          <span className="flex items-center gap-1.5 text-red-500 text-xs font-semibold animate-pulse">
-            <span className="w-2 h-2 bg-red-500 rounded-full" /> {fmt(duration)}
+          <span className="flex items-center gap-1 text-red-500 text-[11px] font-semibold animate-pulse">
+            <span className="w-1.5 h-1.5 bg-red-500 rounded-full" /> {fmt(duration)}
           </span>
         )}
       </div>
       <div className="flex items-center gap-2 flex-wrap">
         {!recording ? (
           <button onClick={startRecording} disabled={!!(audioBlob && !saved)}
-            className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-30">
-            <Mic size={13} /> Record
+            className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-30">
+            <Mic size={11} /> Record
           </button>
         ) : (
           <button onClick={stopRecording}
-            className="flex items-center gap-2 bg-gray-800 hover:bg-black text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
-            <Square size={13} /> Stop
+            className="flex items-center gap-1.5 bg-gray-800 hover:bg-black text-white px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all">
+            <Square size={11} /> Stop
           </button>
         )}
         {audioUrl && !recording && (
           <>
             <audio ref={audioRef} src={audioUrl} onEnded={() => setPlaying(false)} className="hidden" />
             <button onClick={togglePlay}
-              className="flex items-center gap-1.5 bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-medium">
-              {playing ? <Pause size={13} /> : <Play size={13} />} {playing ? 'Pause' : 'Play'}
+              className="flex items-center gap-1 bg-white border border-gray-300 text-gray-700 px-2.5 py-1.5 rounded-lg text-[11px] font-medium">
+              {playing ? <Pause size={11} /> : <Play size={11} />} {playing ? 'Pause' : 'Play'}
             </button>
             {!saved && (
               <button onClick={uploadAudio} disabled={uploading}
-                className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50">
-                {uploading ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                className="flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-2.5 py-1.5 rounded-lg text-[11px] font-medium disabled:opacity-50">
+                {uploading ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
                 {uploading ? 'Saving...' : 'Send'}
               </button>
             )}
-            {saved && <span className="text-xs text-emerald-600 font-medium flex items-center gap-1"><CheckCircle2 size={13} /> Sent!</span>}
-            <button onClick={discardAudio} className="p-1.5 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500">
-              <Trash2 size={13} />
+            {saved && <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-1"><CheckCircle2 size={11} /> Sent!</span>}
+            <button onClick={discardAudio} className="p-1 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500">
+              <Trash2 size={11} />
             </button>
           </>
         )}
@@ -1007,7 +1075,6 @@ function TaskChat({ task, currentUser }: { task: Task; currentUser: UserProfile 
       table: 'task_comments',
       filter: `task_id=eq.${taskId}`,
     }, async (payload) => {
-      // Fetch sender profile details since PostgreSQL realtime payload doesn't join tables
       const { data: userData } = await supabase
         .from('users')
         .select('full_name, email')
@@ -1104,19 +1171,19 @@ function TaskChat({ task, currentUser }: { task: Task; currentUser: UserProfile 
   };
 
   return (
-    <div className="border border-gray-100 rounded-xl bg-gray-50/50 p-3 mt-3 flex flex-col max-h-80">
-      <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-        <MessageSquare size={12} className="text-blue-500" /> Task Chat Discussion
+    <div className="border border-gray-100 rounded-xl bg-gray-50/50 p-2.5 flex flex-col max-h-72">
+      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1">
+        <MessageSquare size={10} className="text-blue-500" /> Discussion
       </div>
 
       {/* Message List */}
-      <div className="flex-1 overflow-y-auto space-y-2 mb-3 pr-1 min-h-[120px] max-h-48 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto space-y-1.5 mb-2 pr-1 min-h-[80px] max-h-40 scrollbar-thin">
         {loading ? (
-          <div className="flex items-center justify-center py-6">
-            <Loader2 className="animate-spin text-blue-500" size={20} />
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="animate-spin text-blue-500" size={16} />
           </div>
         ) : comments.length === 0 ? (
-          <div className="text-center py-8 text-xs text-gray-400">
+          <div className="text-center py-6 text-[11px] text-gray-400">
             No messages yet. Start the conversation!
           </div>
         ) : (
@@ -1125,19 +1192,19 @@ function TaskChat({ task, currentUser }: { task: Task; currentUser: UserProfile 
             const senderName = c.users?.full_name || c.users?.email?.split('@')[0] || 'Unknown';
             return (
               <div key={c.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs shadow-sm ${
+                <div className={`max-w-[85%] rounded-2xl px-2.5 py-1.5 text-[11px] shadow-sm ${
                   isMe 
                     ? 'bg-blue-500 text-white rounded-tr-none' 
                     : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
                 }`}>
                   {!isMe && (
-                    <p className="font-bold text-[10px] text-blue-600 mb-0.5">
+                    <p className="font-bold text-[9px] text-blue-600 mb-0.5">
                       {senderName}
                     </p>
                   )}
                   <p className="whitespace-pre-wrap break-words">{c.comment}</p>
                 </div>
-                <span className="text-[9px] text-gray-400 mt-0.5 px-1">
+                <span className="text-[8px] text-gray-400 mt-0.5 px-1">
                   {new Date(c.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
@@ -1148,20 +1215,20 @@ function TaskChat({ task, currentUser }: { task: Task; currentUser: UserProfile 
       </div>
 
       {/* Input form */}
-      <form onSubmit={handleSend} className="flex gap-2">
+      <form onSubmit={handleSend} className="flex gap-1.5">
         <input
           type="text"
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Type your message..."
-          className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-[11px] bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
           type="submit"
           disabled={!text.trim() || sending}
-          className="bg-blue-500 text-white px-3 py-2 rounded-xl text-xs font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center justify-center"
+          className="bg-blue-500 text-white px-2.5 py-1.5 rounded-lg text-[11px] font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center justify-center"
         >
-          {sending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+          {sending ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
         </button>
       </form>
     </div>
